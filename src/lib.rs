@@ -1,6 +1,9 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![allow(clippy::needless_lifetimes)]
+#![allow(clippy::needless_return)]
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -25,10 +28,10 @@ struct Player  {
 }
 
 impl Player {
-    fn new<'player>(name: String, ratio: u16, age: u16) -> Self {
+    const fn new<'player>(name: String, ratio: u16, age: u16) -> Self {
         return Self {
-            name,
             ratio,
+            name,
             age
         };
     }
@@ -36,10 +39,10 @@ impl Player {
 
 impl Player {
 
-    fn match_up<'player>(self, other_player: Rc<Box<Player>>) -> Rc<Box<Player>>{
+    fn match_up<'player>(self, other_player: Rc<Player>) -> Rc<Self>{
 
         if self.ratio > other_player.ratio {
-            return Rc::new(Box::new(self));
+            return Rc::new(self);
         } else {
             return other_player;
         }
@@ -47,11 +50,11 @@ impl Player {
         // return ((self.age.cmp(&other_player.age)), (self.ratio.cmp(&other_player.ratio)));
     }
 
-    fn is_draw_against_player<'player>(&'player self, other_player: &Player) -> bool {
+    const fn is_draw_against_player<'player>(&'player self, other_player: &Self) -> bool {
         return self.ratio == other_player.ratio;
     }
 
-    fn is_eliminated_by<'player>(&'player self, other_player : &Player) -> bool {
+    const fn is_eliminated_by<'player>(&'player self, other_player : &Self) -> bool {
         return (self.age >= other_player.age && self.ratio < other_player.ratio) || (self.age >=
             other_player.age && self.ratio == other_player.ratio)
     }
@@ -62,19 +65,19 @@ impl Player {
 //     Player(Box<Player>)
 // }
 
-fn get_champions(participants: Vec<Player>) -> Vec<Rc<Box<Player>>> {
+fn get_champions(participants: Vec<Player>) -> Vec<Rc<Player>> {
     if participants.is_empty() {
         return vec![];
     }
 
     // let record_register : HashMap<String, RecordRegister> = HashMap::new();
-    let mut record  :HashMap<u16,Rc<Box<Player>>> = HashMap::new();
+    let mut record  :HashMap<u16,Rc<Player>> = HashMap::new();
     //Maybe BTreeMap or BinaryHeap ?
     let mut draws = Vec::new();
 
     for player in participants {
         let category = player.age;
-        let current_champion = record.entry(category).or_insert(Rc::new(Box::new(Player::default())));
+        let current_champion = record.entry(category).or_insert(Rc::new(Player::default()));
         // let current_champion = match record.get(&category){
         //     Some(champion) => champion,
         //     None => {
@@ -84,32 +87,32 @@ fn get_champions(participants: Vec<Player>) -> Vec<Rc<Box<Player>>> {
 
 
         if player.is_draw_against_player(current_champion){
-            draws.push((Rc::clone(current_champion)));
-            draws.push(Rc::new(Box::new(player)));
+            draws.push(Rc::clone(current_champion));
+            draws.push(Rc::new(player));
             continue;
         }
         let strongest_at_category_age = player.match_up(Rc::clone(current_champion));
         record.insert(category, strongest_at_category_age);
     }
 
-    let mut bests_by_age= Vec::from_iter(record.values());
-    for player in draws.iter() {
+    let mut bests_by_age= record.values().collect::<Vec<_>>();
+    for player in &draws {
         bests_by_age.push(player);
     }
 
 
-    let mut bests_by_age = Vec::from_iter((BTreeSet::<_>::from_iter(bests_by_age)));
+    let mut bests_by_age = Vec::from_iter(BTreeSet::<_>::from_iter(bests_by_age));
 
     bests_by_age.sort_by_key(|element| element.age);
 
-    let mut ascending_ordered_ages= Vec::from_iter(record.keys());
+    let mut ascending_ordered_ages= record.keys().collect::<Vec<_>>();
     ascending_ordered_ages.sort();
     // let ascending_ordered_ages = ascending_ordered_ages.iter();
     let mut champions_list = Vec::new();
 
-     for player in bests_by_age.iter() {
+     for player in &bests_by_age {
 
-         for age_category in ascending_ordered_ages.iter() {
+         for age_category in &ascending_ordered_ages {
             if(**age_category == player.age) {
                 champions_list.push(Rc::clone(player));
                 break;
@@ -138,8 +141,8 @@ mod tests {
             Player::new(String::from("Lebron"), 1200, 11)
         ];
         let karl_and_lebron= vec![
-            Rc::new(Box::new(Player::new(String::from("Karl"), 1100,9))),
-            Rc::new(Box::new(Player::new(String::from("Lebron"), 1200, 11)))
+            Rc::new(Player::new(String::from("Karl"), 1100,9)),
+            Rc::new(Player::new(String::from("Lebron"), 1200, 11))
         ];
         //ACT
         let result = get_champions(player_list);
@@ -173,9 +176,9 @@ mod tests {
             Player::new(String::from("Lebron"), 33_000, 33),
         ];
         let goats= vec![
-            Rc::new(Box::new(Player::new(String::from("Boo"), 37_000,18))),
-            Rc::new(Box::new(Player::new(String::from("Karl"), 38_000,30))),
-            Rc::new(Box::new(Player::new(String::from("Kareem"), 42_000, 75))),
+            Rc::new(Player::new(String::from("Boo"), 37_000,18)),
+            Rc::new(Player::new(String::from("Karl"), 38_000,30)),
+            Rc::new(Player::new(String::from("Kareem"), 42_000, 75)),
         ];
         //ACT
         let result = get_champions(player_list);
@@ -195,10 +198,10 @@ mod tests {
             Player::new(String::from("Lebron"), 32_000, 31),
         ];
         let goats= vec![
-            Rc::new(Box::new(Player::new(String::from("Boo"), 37_000,18))),
-            Rc::new(Box::new(Player::new(String::from("Karl"), 40_000,30))),
-            Rc::new(Box::new(Player::new(String::from("Moses"), 40_000, 30))),
-            Rc::new(Box::new(Player::new(String::from("Kareem"), 42_000, 75)))
+            Rc::new(Player::new(String::from("Boo"), 37_000,18)),
+            Rc::new(Player::new(String::from("Karl"), 40_000,30)),
+            Rc::new(Player::new(String::from("Moses"), 40_000, 30)),
+            Rc::new(Player::new(String::from("Kareem"), 42_000, 75))
         ];
         //ACT
         let result = get_champions(player_list);
